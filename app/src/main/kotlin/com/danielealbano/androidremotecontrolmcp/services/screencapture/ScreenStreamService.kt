@@ -49,7 +49,11 @@ class ScreenStreamService : Service() {
         instance = this
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         when (intent?.action) {
             ACTION_STOP -> {
                 stopStream()
@@ -84,8 +88,7 @@ class ScreenStreamService : Service() {
 
     private fun startForegroundCompat() {
         val notification =
-            NotificationCompat
-                .Builder(this, McpApplication.MCP_SERVER_CHANNEL_ID)
+            NotificationCompat.Builder(this, McpApplication.MCP_SERVER_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle("AI screen stream")
                 .setContentText("Real-time H.264 display capture is active")
@@ -108,7 +111,10 @@ class ScreenStreamService : Service() {
         )
     }
 
-    private fun startStream(resultCode: Int, resultData: Intent) {
+    private fun startStream(
+        resultCode: Int,
+        resultData: Intent,
+    ) {
         val projectionManager =
             getSystemService(MediaProjectionManager::class.java)
                 ?: error("MediaProjectionManager unavailable")
@@ -193,10 +199,14 @@ class ScreenStreamService : Service() {
                                     val payload = copyBuffer(buffer, info.offset, info.size)
                                     val frameFlags =
                                         when {
-                                            info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0 ->
+                                            info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0 -> {
                                                 ScreenStreamHub.FLAG_CODEC_CONFIG
-                                            info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0 ->
+                                            }
+
+                                            info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0 -> {
                                                 ScreenStreamHub.FLAG_KEY_FRAME
+                                            }
+
                                             else -> 0
                                         }
                                     if (frameFlags and ScreenStreamHub.FLAG_CODEC_CONFIG != 0) {
@@ -226,9 +236,11 @@ class ScreenStreamService : Service() {
     private fun requestSyncFrame() {
         val codec = encoder ?: return
         runCatching {
-            codec.setParameters(Bundle().apply {
-                putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0)
-            })
+            codec.setParameters(
+                Bundle().apply {
+                    putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0)
+                },
+            )
         }
     }
 
@@ -270,7 +282,8 @@ class ScreenStreamService : Service() {
     }
 
     private fun extractCodecConfig(format: MediaFormat): ByteArray? {
-        val parts = listOf("csd-0", "csd-1").mapNotNull { key ->
+        val parts =
+            listOf("csd-0", "csd-1").mapNotNull { key ->
             format.getByteBuffer(key)?.let { source ->
                 val duplicate = source.duplicate()
                 ByteArray(duplicate.remaining()).also { duplicate.get(it) }
