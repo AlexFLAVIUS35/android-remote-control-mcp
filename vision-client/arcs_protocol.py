@@ -17,7 +17,7 @@ FLAG_CODEC_CONFIG = 2
 class ScreenPacket:
     pts_us: int
     flags: int
-    payload: bytes
+    payload: memoryview
 
     @property
     def is_codec_config(self) -> bool:
@@ -47,5 +47,5 @@ def parse_packet(message: bytes) -> ScreenPacket:
     return ScreenPacket(
         pts_us=pts_us,
         flags=flags,
-        payload=message[payload_start:payload_end],
+        payload=memoryview(message)[payload_start:payload_end],
     )
