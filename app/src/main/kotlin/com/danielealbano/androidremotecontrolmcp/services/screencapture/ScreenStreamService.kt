@@ -25,6 +25,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlin.concurrent.thread
 import kotlin.math.roundToInt
 
@@ -170,6 +172,7 @@ class ScreenStreamService : Service() {
 
         streamHub.setRunning(width, height, TARGET_FPS)
         streamHub.onClientConnected = { requestSyncFrame() }
+        _running.value = true
         outputThread = thread(name = "ScreenStreamEncoder", start = true) { drainEncoder(codec) }
     }
 
@@ -226,6 +229,7 @@ class ScreenStreamService : Service() {
 
     private fun stopStream() {
         if (!stopping.compareAndSet(false, true)) return
+        _running.value = false
         streamHub.onClientConnected = null
         streamHub.setStopped()
         outputThread?.join(500)
@@ -309,6 +313,8 @@ class ScreenStreamService : Service() {
         const val EXTRA_RESULT_DATA = "screen_stream_result_data"
 
         private val START_CODE = byteArrayOf(0, 0, 0, 1)
+        private val _running = MutableStateFlow(false)
+        val running = _running.asStateFlow()
 
         @Volatile
         var instance: ScreenStreamService? = null
