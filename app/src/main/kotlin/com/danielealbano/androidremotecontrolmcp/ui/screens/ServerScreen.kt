@@ -46,7 +46,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.danielealbano.androidremotecontrolmcp.R
 import com.danielealbano.androidremotecontrolmcp.data.model.BindingAddress
+import com.danielealbano.androidremotecontrolmcp.services.screencapture.ScreenStreamService
 import com.danielealbano.androidremotecontrolmcp.ui.ApprovalActivity
+import com.danielealbano.androidremotecontrolmcp.ui.ScreenCapturePermissionActivity
 import com.danielealbano.androidremotecontrolmcp.ui.components.BatteryOptimizationCard
 import com.danielealbano.androidremotecontrolmcp.ui.components.CalloutCard
 import com.danielealbano.androidremotecontrolmcp.ui.components.ConnectionInfoCard
@@ -58,8 +60,6 @@ import com.danielealbano.androidremotecontrolmcp.ui.viewmodels.LogsViewModel
 import com.danielealbano.androidremotecontrolmcp.ui.viewmodels.MainViewModel
 import com.danielealbano.androidremotecontrolmcp.ui.viewmodels.PrivacyViewModel
 import com.danielealbano.androidremotecontrolmcp.utils.NetworkUtils
-import com.danielealbano.androidremotecontrolmcp.services.screencapture.ScreenStreamService
-import com.danielealbano.androidremotecontrolmcp.ui.ScreenCapturePermissionActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
