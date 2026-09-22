@@ -70,7 +70,11 @@ class ScreenStreamHub
         @Volatile
         var onClientConnected: (() -> Unit)? = null
 
-        fun setRunning(width: Int, height: Int, fps: Int) {
+        fun setRunning(
+            width: Int,
+            height: Int,
+            fps: Int,
+        ) {
             _status.value = ScreenStreamStatus(running = true, width = width, height = height, fps = fps)
         }
 
@@ -112,13 +116,26 @@ class ScreenStreamHub
                 )
             }
             frames.collect { frame ->
-                session.send(Frame.Binary(fin = true, data = frame.toWireBytes()))
+                session.send(
+                    Frame.Binary(
+                        fin = true,
+                        data = frame.toWireBytes(),
+                    ),
+                )
             }
         }
 
         fun statusJson(): String {
             val value = _status.value
-            return """{"running":${value.running},"width":${value.width},"height":${value.height},"fps":${value.fps},"codec":"${value.codec}","transport":"websocket","path":"/screen/stream"}"""
+            return buildString {
+                append("{\"running\":${value.running},")
+                append("\"width\":${value.width},")
+                append("\"height\":${value.height},")
+                append("\"fps\":${value.fps},")
+                append("\"codec\":\"${value.codec}\",")
+                append("\"transport\":\"websocket\",")
+                append("\"path\":\"/screen/stream\"}")
+            }
         }
 
         companion object {
