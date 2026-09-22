@@ -13,6 +13,7 @@ import com.danielealbano.androidremotecontrolmcp.services.screencapture.ScreenSt
 import com.danielealbano.androidremotecontrolmcp.services.sharing.EphemeralFileLinkService
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.install
 import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.engine.sslConnector
@@ -21,14 +22,15 @@ import io.ktor.server.netty.NettyApplicationEngine
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondText
-import io.ktor.server.websocket.WebSockets
-import io.ktor.server.websocket.webSocket
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
+import io.ktor.server.websocket.WebSockets
+import io.ktor.server.websocket.webSocket
 import java.security.KeyStore
 import java.util.concurrent.atomic.AtomicBoolean
+import javax.inject.Inject
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 
 /** TLS material for the HTTPS listener; null when HTTPS is disabled or no certificate is loaded. */
 class HttpsMaterial(
