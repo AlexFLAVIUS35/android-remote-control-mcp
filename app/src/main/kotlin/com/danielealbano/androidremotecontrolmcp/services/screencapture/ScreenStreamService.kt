@@ -201,8 +201,13 @@ class ScreenStreamService : Service() {
                                         }
                                     if (frameFlags and ScreenStreamHub.FLAG_CODEC_CONFIG != 0) {
                                         streamHub.publishCodecConfig(payload)
+                                    } else {
+                                        streamHub.publishFrame(
+                                            info.presentationTimeUs,
+                                            frameFlags,
+                                            payload,
+                                        )
                                     }
-                                    streamHub.publishFrame(info.presentationTimeUs, frameFlags, payload)
                                 }
                             } finally {
                                 codec.releaseOutputBuffer(index, false)
