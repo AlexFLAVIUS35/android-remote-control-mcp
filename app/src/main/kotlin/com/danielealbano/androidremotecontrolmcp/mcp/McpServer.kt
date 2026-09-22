@@ -9,8 +9,8 @@ import com.danielealbano.androidremotecontrolmcp.mcp.oauth.OAuthAccessValidator
 import com.danielealbano.androidremotecontrolmcp.mcp.oauth.OAuthRouteDeps
 import com.danielealbano.androidremotecontrolmcp.mcp.oauth.OAuthServerDeps
 import com.danielealbano.androidremotecontrolmcp.mcp.oauth.installOAuthRoutes
-import com.danielealbano.androidremotecontrolmcp.services.sharing.EphemeralFileLinkService
 import com.danielealbano.androidremotecontrolmcp.services.screencapture.ScreenStreamHub
+import com.danielealbano.androidremotecontrolmcp.services.sharing.EphemeralFileLinkService
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.engine.EmbeddedServer
@@ -20,9 +20,9 @@ import io.ktor.server.netty.Netty
 import io.ktor.server.netty.NettyApplicationEngine
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
+import io.ktor.server.response.respondText
 import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.webSocket
-import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import kotlinx.coroutines.runBlocking
