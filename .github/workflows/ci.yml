@@ -330,6 +330,8 @@ jobs:
               "arcs_protocol", Path("vision-client/arcs_protocol.py")
           )
           module = importlib.util.module_from_spec(spec)
+          import sys
+          sys.modules[spec.name] = module
           spec.loader.exec_module(module)
           packet = module.parse_packet(
               module.HEADER.pack(module.MAGIC, module.VERSION, module.FLAG_KEY_FRAME, 123456, 4)
