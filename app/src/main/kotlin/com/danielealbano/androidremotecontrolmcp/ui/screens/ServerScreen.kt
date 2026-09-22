@@ -253,9 +253,10 @@ private fun ScreenStreamCard(
             Text(stringResource(R.string.screen_stream_description))
             Spacer(Modifier.height(8.dp))
             Text(
-                text = if (running) {
-                    stringResource(R.string.screen_stream_running)
-                } else {
+                text =
+                    if (running) {
+                        stringResource(R.string.screen_stream_running)
+                    } else {
                     stringResource(R.string.screen_stream_stopped)
                 },
                 style = MaterialTheme.typography.bodyMedium,
