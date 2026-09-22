@@ -80,7 +80,15 @@ class ScreenStreamHub
         }
 
         fun publishCodecConfig(payload: ByteArray) {
-            codecConfig.set(payload.copyOf())
+            val copy = payload.copyOf()
+            codecConfig.set(copy)
+            frames.tryEmit(
+                EncodedScreenFrame(
+                    presentationTimeUs = 0,
+                    flags = FLAG_CODEC_CONFIG,
+                    payload = copy,
+                ),
+            )
         }
 
         fun publishFrame(presentationTimeUs: Long, flags: Int, payload: ByteArray) {
