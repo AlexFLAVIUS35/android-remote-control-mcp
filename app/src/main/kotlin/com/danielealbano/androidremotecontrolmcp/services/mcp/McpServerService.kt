@@ -67,6 +67,7 @@ import com.danielealbano.androidremotecontrolmcp.services.location.LocationProvi
 import com.danielealbano.androidremotecontrolmcp.services.notifications.McpNotificationListenerService
 import com.danielealbano.androidremotecontrolmcp.services.notifications.NotificationProvider
 import com.danielealbano.androidremotecontrolmcp.services.screencapture.ScreenCaptureProvider
+import com.danielealbano.androidremotecontrolmcp.services.screencapture.ScreenStreamHub
 import com.danielealbano.androidremotecontrolmcp.services.screencapture.ScreenshotAnnotator
 import com.danielealbano.androidremotecontrolmcp.services.screencapture.ScreenshotEncoder
 import com.danielealbano.androidremotecontrolmcp.services.screencapture.ScreenshotRedactor
@@ -120,6 +121,8 @@ class McpServerService : Service() {
     @Inject lateinit var accessibilityServiceProvider: AccessibilityServiceProvider
 
     @Inject lateinit var screenCaptureProvider: ScreenCaptureProvider
+
+    @Inject lateinit var screenStreamHub: ScreenStreamHub
 
     @Inject lateinit var treeParser: AccessibilityTreeParser
 
@@ -321,6 +324,7 @@ class McpServerService : Service() {
                     config = config,
                     httpsMaterial = buildHttpsMaterial(keyStore, keyStorePassword),
                     mcpSdkServer = sdkServer,
+                    screenStreamHub = screenStreamHub,
                     ephemeralFileLinkService = ephemeralFileLinkService,
                     oauth =
                         OAuthServerDeps(
