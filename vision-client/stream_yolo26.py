@@ -16,11 +16,11 @@ class H264Feeder:
     """Thread-safe callback source for PyNvVideoCodec CreateDemuxer()."""
 
     def __init__(self, max_packets: int = 8) -> None:
-        self._packets: queue.Queue[bytes | None] = queue.Queue(maxsize=max_packets)
+        self._packets: queue.Queue[bytes | memoryview | None] = queue.Queue(maxsize=max_packets)
         self._current = memoryview(b"")
         self._closed = False
 
-    def push(self, payload: bytes) -> None:
+    def push(self, payload: bytes | memoryview) -> None:
         if self._closed:
             return
         self._packets.put(payload, block=True)
@@ -123,6 +123,9 @@ class ScreenStreamReceiver:
                 packet.decode_flag = nvc.VideoPacketFlag.ENDOFPICTURE
             for frame in decoder.Decode(packet):
                 on_frame(frame)
+
+        for frame in decoder.Flush():
+            on_frame(frame)
 
 
 class YOLO26TensorRT:
