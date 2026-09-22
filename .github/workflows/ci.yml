@@ -2,9 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - ai-screen-stream
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -294,6 +297,49 @@ jobs:
           name: e2e-test-results
           path: e2e-tests/build/reports/tests/
           retention-days: 14
+
+  vision-client:
+    name: Vision Client - Python checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install syntax-check dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r vision-client/requirements.txt
+
+      - name: Compile vision client
+        run: |
+          python -m py_compile vision-client/*.py
+          python -m compileall -q vision-client
+
+      - name: Validate ARCS protocol parser
+        run: |
+          python - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location(
+              "arcs_protocol", Path("vision-client/arcs_protocol.py")
+          )
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          packet = module.parse_packet(
+              module.HEADER.pack(module.MAGIC, module.VERSION, module.FLAG_KEY_FRAME, 123456, 4)
+              + b"test"
+          )
+          assert packet.pts_us == 123456
+          assert packet.is_key_frame
+          assert packet.payload.tobytes() == b"test"
+          print("ARCS parser OK")
+          PY
 
   build-release:
     name: Build Release - ${{ matrix.label }}
