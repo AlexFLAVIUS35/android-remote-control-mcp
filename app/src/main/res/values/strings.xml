@@ -339,4 +339,10 @@
     <string name="privacy_card_title">Worried about personal data?</string>
     <string name="privacy_card_action">Set up Privacy Mode</string>
     <string name="privacy_card_dismiss">Dismiss</string>
+    <string name="screen_stream_title">AI screen stream</string>
+    <string name="screen_stream_description">Capture the Android display continuously with MediaProjection and stream hardware-encoded H.264 frames over WebSocket. This path avoids per-frame JPEG and Base64 conversion.</string>
+    <string name="screen_stream_start">Start screen stream</string>
+    <string name="screen_stream_stop">Stop screen stream</string>
+    <string name="screen_stream_running">Running at the configured real-time capture rate</string>
+    <string name="screen_stream_stopped">Stopped</string>
 </resources>
