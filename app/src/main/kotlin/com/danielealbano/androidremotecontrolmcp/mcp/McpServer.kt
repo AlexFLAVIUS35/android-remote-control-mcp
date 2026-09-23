@@ -26,11 +26,12 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.webSocket
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import java.security.KeyStore
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
+
 
 /** TLS material for the HTTPS listener; null when HTTPS is disabled or no certificate is loaded. */
 class HttpsMaterial(
