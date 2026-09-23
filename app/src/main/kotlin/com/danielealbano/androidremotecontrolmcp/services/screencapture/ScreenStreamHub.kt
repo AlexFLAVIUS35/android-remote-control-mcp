@@ -112,9 +112,9 @@ class ScreenStreamHub
                     Frame.Binary(
                         fin = true,
                         data = EncodedScreenFrame(
-                            0,
-                            FLAG_CODEC_CONFIG,
-                            config,
+                            presentationTimeUs = 0,
+                            flags = FLAG_CODEC_CONFIG,
+                            payload = config,
                         ).toWireBytes(),
                     ),
                 )
