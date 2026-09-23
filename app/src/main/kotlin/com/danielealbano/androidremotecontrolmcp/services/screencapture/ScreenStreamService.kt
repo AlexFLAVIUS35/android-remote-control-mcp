@@ -345,7 +345,7 @@ class ScreenStreamService : Service() {
                     ?.upper
                     ?.toInt()
                     ?: 60
-            }
+            }.getOrDefault(60)
 
         return minOf(MAX_FPS, displayFps, advertisedMax).coerceIn(30, MAX_FPS)
     }
