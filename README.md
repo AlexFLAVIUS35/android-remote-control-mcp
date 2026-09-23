@@ -59,6 +59,47 @@ The app runs directly on your Android device (or emulator) and exposes an HTTP s
 - Auto-start on boot
 - Remote access tunnels via Cloudflare Quick Tunnels or ngrok (public HTTPS URL)
 
+### Continuous Screen Streaming
+
+This fork also includes a low-latency continuous Android screen-streaming pipeline designed for real-time vision and automation workloads. The existing MCP server and control architecture remain unchanged; screen streaming is an additional data plane alongside the MCP control plane.
+
+- **MediaProjection capture** — captures the Android display continuously through a dedicated foreground service.
+- **Hardware H.264 encoding** — uses Android's hardware AVC encoder instead of sending raw frames.
+- **High-refresh streaming** — detects the device display refresh rate and encoder capabilities, selecting a supported rate up to **120 FPS**.
+- **Adaptive bitrate** — scales the target bitrate with the selected frame rate, up to **20 Mbps**.
+- **Binary WebSocket transport** — clients receive encoded frames continuously through the `/screen/stream` endpoint.
+- **Stream status** — `/screen/status` exposes the current stream state and negotiated capture settings.
+- **Keyframe synchronization** — newly connected clients can request a sync frame so they can begin decoding without waiting for the next natural keyframe.
+- **Android UI controls** — the Server screen provides start/stop controls and launches the required system screen-capture permission flow.
+
+The intended architecture is:
+
+~~~text
+Android
+  ├── MCP server ──────────────── control / reasoning plane
+  │       └── /mcp
+  │
+  └── ScreenStreamService ────── continuous data plane
+          │
+          ├── MediaProjection
+          ├── VirtualDisplay
+          └── hardware H.264
+                    │
+                    ▼
+             ScreenStreamHub
+                    │
+                    ▼
+             WebSocket client
+                    │
+                    ▼
+          PC-side vision / controller
+~~~
+
+High-frequency video is intentionally kept separate from MCP tool calls. MCP remains the lower-frequency control and reasoning interface, while the continuous stream can feed a PC-side vision pipeline for detection, tracking, world-state construction, and low-latency control.
+
+> **Android permission:** starting the screen stream requires the user to approve Android's system screen-capture prompt. The stream runs as a foreground media-projection service and can be stopped from the app.
+
+---
 ### 57 MCP Tools across 14 Categories
 
 Screen introspection, system actions, touch actions, gestures, node actions, text input, utilities, file operations, app management, camera, intents, notifications, location, and sharing.
