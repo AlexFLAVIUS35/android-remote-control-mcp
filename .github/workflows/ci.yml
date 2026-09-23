@@ -438,18 +438,36 @@ jobs:
           path: .dbip-cache
           key: dbip-csv-${{ steps.dbip-month.outputs.month }}
 
-      - name: Decode release keystore
+      - name: Prepare release signing keystore
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
-          if [ -z "$RELEASE_KEYSTORE_BASE64" ]; then
-            echo "::error::RELEASE_KEYSTORE_BASE64 secret is not set; release APK would be unsigned"
+          if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "Using repository release keystore"
+            printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/release.jks"
+          else
+            echo "::warning::RELEASE_KEYSTORE_BASE64 is not configured; generating an ephemeral CI signing key."
+            echo "This APK is installable but cannot update an APK signed by a different key."
+            keytool -genkeypair \
+              -keystore "$GITHUB_WORKSPACE/release.jks" \
+              -storepass "ci-temporary-store-password" \
+              -keypass "ci-temporary-key-password" \
+              -alias "ci-release" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 3650 \
+              -dname "CN=Android Remote Control MCP CI"
+            export RELEASE_KEYSTORE_PASSWORD="ci-temporary-store-password"
+            export RELEASE_KEY_ALIAS="ci-release"
+            export RELEASE_KEY_PASSWORD="ci-temporary-key-password"
+          fi
+          if [ ! -s "$GITHUB_WORKSPACE/release.jks" ]; then
+            echo "::error::Release keystore was not created"
             exit 1
           fi
-          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/release.jks"
           {
             echo "storeFile=$GITHUB_WORKSPACE/release.jks"
             echo "storePassword=$RELEASE_KEYSTORE_PASSWORD"
