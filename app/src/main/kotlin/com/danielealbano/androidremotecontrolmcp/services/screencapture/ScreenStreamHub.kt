@@ -101,7 +101,11 @@ class ScreenStreamHub
             )
         }
 
-        fun publishFrame(presentationTimeUs: Long, flags: Int, payload: ByteArray) {
+        fun publishFrame(
+            presentationTimeUs: Long,
+            flags: Int,
+            payload: ByteArray,
+        ) {
             frames.tryEmit(
                 EncodedScreenFrame(
                     presentationTimeUs = presentationTimeUs,
