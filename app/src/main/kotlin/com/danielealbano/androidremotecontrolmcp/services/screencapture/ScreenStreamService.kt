@@ -88,7 +88,8 @@ class ScreenStreamService : Service() {
 
     private fun startForegroundCompat() {
         val notification =
-            NotificationCompat.Builder(this, McpApplication.MCP_SERVER_CHANNEL_ID)
+            NotificationCompat
+                .Builder(this, McpApplication.MCP_SERVER_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle("AI screen stream")
                 .setContentText("Real-time H.264 display capture is active")
@@ -101,8 +102,7 @@ class ScreenStreamService : Service() {
                         android.app.PendingIntent.FLAG_IMMUTABLE or
                             android.app.PendingIntent.FLAG_UPDATE_CURRENT,
                     ),
-                )
-                .build()
+                ).build()
 
         startForeground(
             NOTIFICATION_ID,
@@ -199,10 +199,14 @@ class ScreenStreamService : Service() {
         try {
             while (!stopping.get()) {
                 when (val index = codec.dequeueOutputBuffer(info, OUTPUT_TIMEOUT_US)) {
-                    MediaCodec.INFO_TRY_AGAIN_LATER -> Unit
+                    MediaCodec.INFO_TRY_AGAIN_LATER -> {
+                        Unit
+                    }
+
                     MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                         extractCodecConfig(codec.outputFormat)?.let(streamHub::publishCodecConfig)
                     }
+
                     else -> {
                         if (index >= 0) {
                             try {
@@ -286,7 +290,11 @@ class ScreenStreamService : Service() {
             intent.getParcelableExtra(EXTRA_RESULT_DATA)
         }
 
-    private fun copyBuffer(buffer: ByteBuffer, offset: Int, size: Int): ByteArray {
+    private fun copyBuffer(
+        buffer: ByteBuffer,
+        offset: Int,
+        size: Int,
+    ): ByteArray {
         val duplicate = buffer.duplicate()
         duplicate.position(offset)
         duplicate.limit(offset + size)
@@ -296,11 +304,11 @@ class ScreenStreamService : Service() {
     private fun extractCodecConfig(format: MediaFormat): ByteArray? {
         val parts =
             listOf("csd-0", "csd-1").mapNotNull { key ->
-            format.getByteBuffer(key)?.let { source ->
-                val duplicate = source.duplicate()
-                ByteArray(duplicate.remaining()).also { duplicate.get(it) }
+                format.getByteBuffer(key)?.let { source ->
+                    val duplicate = source.duplicate()
+                    ByteArray(duplicate.remaining()).also { duplicate.get(it) }
+                }
             }
-        }
         if (parts.isEmpty()) return null
         val totalSize = parts.sumOf { it.size + START_CODE.size }
         val output = ByteArray(totalSize)
@@ -332,18 +340,18 @@ class ScreenStreamService : Service() {
                     .getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC)
                     .videoCapabilities
                     ?.getSupportedFrameRatesFor(width, height)
-                    .upper
-                    .toInt()
-            }.getOrDefault(60)
+                    ?.upper
+                    ?.toInt()
+                    ?: 60
+            }
 
         return minOf(MAX_FPS, displayFps, advertisedMax).coerceIn(30, MAX_FPS)
     }
 
-    private fun bitrateFor(fps: Int): Int {
-        return (BASE_BIT_RATE.toLong() * fps / 60L)
+    private fun bitrateFor(fps: Int): Int =
+        (BASE_BIT_RATE.toLong() * fps / 60L)
             .coerceAtMost(MAX_BIT_RATE.toLong())
             .toInt()
-    }
 
     private fun evenDimension(value: Int): Int {
         val safeValue = value.coerceAtLeast(2)
