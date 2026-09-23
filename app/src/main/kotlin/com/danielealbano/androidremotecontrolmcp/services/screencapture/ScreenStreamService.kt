@@ -149,7 +149,7 @@ class ScreenStreamService : Service() {
         // to use the low-latency path at >60 FPS without assuming every encoder supports it.
         val codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
         encoder = codec
-        val targetFps = selectTargetFps(codec, width, height, metrics.refreshRate)
+        val refreshRate =\n            getSystemService(DisplayManager::class.java)\n                ?.getDisplay(android.view.Display.DEFAULT_DISPLAY)\n                ?.refreshRate\n                ?: 60f\n        val targetFps = selectTargetFps(codec, width, height, refreshRate)
         val bitRate = bitrateFor(targetFps)
 
         val format =
