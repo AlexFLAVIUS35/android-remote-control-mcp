@@ -111,7 +111,11 @@ class ScreenStreamHub
                 session.send(
                     Frame.Binary(
                         fin = true,
-                        data = EncodedScreenFrame(0, FLAG_CODEC_CONFIG, config).toWireBytes(),
+                        data = EncodedScreenFrame(
+                            0,
+                            FLAG_CODEC_CONFIG,
+                            config,
+                        ).toWireBytes(),
                     ),
                 )
             }
