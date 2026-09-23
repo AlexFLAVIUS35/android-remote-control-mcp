@@ -32,7 +32,6 @@ import java.security.KeyStore
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
-
 /** TLS material for the HTTPS listener; null when HTTPS is disabled or no certificate is loaded. */
 class HttpsMaterial(
     val keyStore: KeyStore,
