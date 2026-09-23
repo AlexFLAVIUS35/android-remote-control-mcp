@@ -137,13 +137,13 @@ class ScreenStreamHub
         }
 
         fun statusJson(): String {
-            val value = _status.value
+            val statusValue = _status.value
             return buildString {
-                append("{\"running\":${value.running},")
-                append("\"width\":${value.width},")
-                append("\"height\":${value.height},")
-                append("\"fps\":${value.fps},")
-                append("\"codec\":\"${value.codec}\",")
+                append("{\"running\":${statusValue.running},")
+                append("\"width\":${statusValue.width},")
+                append("\"height\":${statusValue.height},")
+                append("\"fps\":${statusValue.fps},")
+                append("\"codec\":\"${statusValue.codec}\",")
                 append("\"transport\":\"websocket\",")
                 append("\"path\":\"/screen/stream\"}")
             }
