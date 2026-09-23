@@ -9,6 +9,7 @@
     <!-- Foreground services -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 
     <!-- Boot receiver -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -96,6 +97,19 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="MCP server providing remote device control" />
         </service>
+
+        <!-- Real-time MediaProjection screen stream -->
+        <service
+            android:name=".services.screencapture.ScreenStreamService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+
+        <!-- One-shot activity used to obtain MediaProjection user consent -->
+        <activity
+            android:name=".ui.ScreenCapturePermissionActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!-- Accessibility Service -->
         <service

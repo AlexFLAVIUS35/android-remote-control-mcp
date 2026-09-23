@@ -1,4 +1,4 @@
-@file:Suppress("FunctionNaming", "LongMethod", "MagicNumber")
+@file:Suppress("CyclomaticComplexMethod", "FunctionNaming", "LongMethod", "MagicNumber")
 
 package com.danielealbano.androidremotecontrolmcp.ui.screens
 
@@ -46,7 +46,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.danielealbano.androidremotecontrolmcp.R
 import com.danielealbano.androidremotecontrolmcp.data.model.BindingAddress
+import com.danielealbano.androidremotecontrolmcp.services.screencapture.ScreenStreamService
 import com.danielealbano.androidremotecontrolmcp.ui.ApprovalActivity
+import com.danielealbano.androidremotecontrolmcp.ui.ScreenCapturePermissionActivity
 import com.danielealbano.androidremotecontrolmcp.ui.components.BatteryOptimizationCard
 import com.danielealbano.androidremotecontrolmcp.ui.components.CalloutCard
 import com.danielealbano.androidremotecontrolmcp.ui.components.ConnectionInfoCard
@@ -86,6 +88,7 @@ fun ServerScreen(
     val isAccessibilityEnabled by viewModel.isAccessibilityEnabled.collectAsStateWithLifecycle()
     val isBatteryOptimizationIgnored by viewModel.isBatteryOptimizationIgnored.collectAsStateWithLifecycle()
     val pendingApprovalCount by viewModel.pendingApprovalCount.collectAsStateWithLifecycle()
+    val screenStreamRunning by ScreenStreamService.running.collectAsStateWithLifecycle()
 
     val channelConfig by channelViewModel.eventChannelConfig.collectAsStateWithLifecycle()
     val channelStatus by channelViewModel.channelConnectionStatus.collectAsStateWithLifecycle()
@@ -172,6 +175,22 @@ fun ServerScreen(
 
             Spacer(Modifier.height(16.dp))
 
+            ScreenStreamCard(
+                running = screenStreamRunning,
+                onStart = {
+                    context.startActivity(Intent(context, ScreenCapturePermissionActivity::class.java))
+                },
+                onStop = {
+                    context.startService(
+                        Intent(context, ScreenStreamService::class.java).apply {
+                            action = ScreenStreamService.ACTION_STOP
+                        },
+                    )
+                },
+            )
+
+            Spacer(Modifier.height(16.dp))
+
             ConnectionInfoCard(
                 bindingAddress = serverConfig.bindingAddress,
                 ipAddress = deviceIp,
@@ -215,6 +234,46 @@ fun ServerScreen(
                 }
             },
         )
+    }
+}
+
+@Composable
+private fun ScreenStreamCard(
+    running: Boolean,
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.screen_stream_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(stringResource(R.string.screen_stream_description))
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text =
+                    if (running) {
+                        stringResource(R.string.screen_stream_running)
+                    } else {
+                        stringResource(R.string.screen_stream_stopped)
+                    },
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (running) {
+                    TextButton(onClick = onStop) {
+                        Text(stringResource(R.string.screen_stream_stop))
+                    }
+                } else {
+                    TextButton(onClick = onStart) {
+                        Text(stringResource(R.string.screen_stream_start))
+                    }
+                }
+            }
+        }
     }
 }
 

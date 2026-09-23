@@ -9,9 +9,11 @@ import com.danielealbano.androidremotecontrolmcp.mcp.oauth.OAuthAccessValidator
 import com.danielealbano.androidremotecontrolmcp.mcp.oauth.OAuthRouteDeps
 import com.danielealbano.androidremotecontrolmcp.mcp.oauth.OAuthServerDeps
 import com.danielealbano.androidremotecontrolmcp.mcp.oauth.installOAuthRoutes
+import com.danielealbano.androidremotecontrolmcp.services.screencapture.ScreenStreamHub
 import com.danielealbano.androidremotecontrolmcp.services.sharing.EphemeralFileLinkService
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.install
 import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.engine.sslConnector
@@ -22,10 +24,13 @@ import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import io.ktor.server.websocket.WebSockets
+import io.ktor.server.websocket.webSocket
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import java.security.KeyStore
 import java.util.concurrent.atomic.AtomicBoolean
+import javax.inject.Inject
 
 /** TLS material for the HTTPS listener; null when HTTPS is disabled or no certificate is loaded. */
 class HttpsMaterial(
@@ -54,6 +59,7 @@ class McpServer(
     private val httpsMaterial: HttpsMaterial?,
     private val mcpSdkServer: io.modelcontextprotocol.kotlin.sdk.server.Server,
     private val ephemeralFileLinkService: EphemeralFileLinkService,
+    private val screenStreamHub: ScreenStreamHub,
     private val oauth: OAuthServerDeps,
     private val serverLog: ServerLogRepository,
 ) {
@@ -160,6 +166,8 @@ class McpServer(
         // Excludes /health, the unauthenticated OAuth endpoints, the /.well-known/ namespace, and the
         // /s/ capability route. Exact paths are used for the OAuth endpoints (not prefixes) so sibling
         // routes are not silently exempted.
+        install(WebSockets)
+
         installMcpBasePlugins {
             bearerTokenEnabled = config.bearerTokenEnabled
             expectedToken = config.bearerToken
@@ -180,6 +188,20 @@ class McpServer(
                     ContentType.Application.Json,
                     HttpStatusCode.OK,
                 )
+            }
+
+            get("/screen/status") {
+                call.respondText(
+                    screenStreamHub.statusJson(),
+                    ContentType.Application.Json,
+                    HttpStatusCode.OK,
+                )
+            }
+
+            // The stream is intentionally a binary WebSocket rather than MCP tool calls.
+            // Authentication is inherited from the global MCP auth plugin above.
+            webSocket("/screen/stream") {
+                screenStreamHub.streamTo(this)
             }
 
             // Capability-link download route — unauthenticated; the token is the credential.

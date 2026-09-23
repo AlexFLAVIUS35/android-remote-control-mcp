@@ -2,9 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - ai-screen-stream
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -58,6 +61,7 @@ jobs:
           JAVA_11_HOME: ${{ env.JAVA_HOME }}
           JAVA_17_HOME: ${{ env.JAVA_HOME }}
 
+      # Keep formatting validation on every stream change; source is ktlint-formatted.
       - name: Run ktlint
         run: ./gradlew ktlintCheck
 
@@ -295,6 +299,51 @@ jobs:
           path: e2e-tests/build/reports/tests/
           retention-days: 14
 
+  vision-client:
+    name: Vision Client - Python checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install syntax-check dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r vision-client/requirements.txt
+
+      - name: Compile vision client
+        run: |
+          python -m py_compile vision-client/*.py
+          python -m compileall -q vision-client
+
+      - name: Validate ARCS protocol parser
+        run: |
+          python - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location(
+              "arcs_protocol", Path("vision-client/arcs_protocol.py")
+          )
+          module = importlib.util.module_from_spec(spec)
+          import sys
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+          packet = module.parse_packet(
+              module.HEADER.pack(module.MAGIC, module.VERSION, module.FLAG_KEY_FRAME, 123456, 4)
+              + b"test"
+          )
+          assert packet.pts_us == 123456
+          assert packet.is_key_frame
+          assert packet.payload.tobytes() == b"test"
+          print("ARCS parser OK")
+          PY
+
   build-release:
     name: Build Release - ${{ matrix.label }}
     runs-on: ubuntu-latest
@@ -319,7 +368,7 @@ jobs:
           # Full history + tags: build.gradle.kts derives versionName/versionCode from
           # git and fails configuration without them (no hardcoded fallback). On
           # pull_request runs this reflects the ephemeral merge ref, not the post-merge
-          # main commit; these artifacts are unsigned and never shipped.
+          # main commit. Release APKs are signed in CI using the repository release keystore.
           fetch-depth: 0
 
       - name: Set up JDK 17
@@ -389,8 +438,54 @@ jobs:
           path: .dbip-cache
           key: dbip-csv-${{ steps.dbip-month.outputs.month }}
 
-      - name: Build ${{ matrix.label }} debug + release APKs
+      - name: Prepare release signing keystore
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "Using repository release keystore"
+            printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/release.jks"
+          else
+            echo "::warning::RELEASE_KEYSTORE_BASE64 is not configured; generating an ephemeral CI signing key."
+            echo "This APK is installable but cannot update an APK signed by a different key."
+            keytool -genkeypair \
+              -keystore "$GITHUB_WORKSPACE/release.jks" \
+              -storepass "ci-temporary-store-password" \
+              -keypass "ci-temporary-key-password" \
+              -alias "ci-release" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 3650 \
+              -dname "CN=Android Remote Control MCP CI"
+            export RELEASE_KEYSTORE_PASSWORD="ci-temporary-store-password"
+            export RELEASE_KEY_ALIAS="ci-release"
+            export RELEASE_KEY_PASSWORD="ci-temporary-key-password"
+          fi
+          if [ ! -s "$GITHUB_WORKSPACE/release.jks" ]; then
+            echo "::error::Release keystore was not created"
+            exit 1
+          fi
+          {
+            echo "storeFile=$GITHUB_WORKSPACE/release.jks"
+            echo "storePassword=$RELEASE_KEYSTORE_PASSWORD"
+            echo "keyAlias=$RELEASE_KEY_ALIAS"
+            echo "keyPassword=$RELEASE_KEY_PASSWORD"
+          } > "$GITHUB_WORKSPACE/keystore.properties"
+
+      - name: Build ${{ matrix.label }} debug + signed release APKs
         run: ./gradlew assemble${{ matrix.cap }}Debug assemble${{ matrix.cap }}Release
+
+      - name: Verify ${{ matrix.label }} release APK signature
+        run: |
+          APK="app/build/outputs/apk/${{ matrix.flavor }}/release/app-${{ matrix.flavor }}-release.apk"
+          if [ ! -f "$APK" ]; then
+            echo "::error::Signed release APK not found at $APK"
+            exit 1
+          fi
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/apksigner" verify --verbose "$APK"
 
       - name: Upload ${{ matrix.label }} debug APK
         uses: actions/upload-artifact@v7
@@ -403,5 +498,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: app-${{ matrix.flavor }}-release
-          path: app/build/outputs/apk/${{ matrix.flavor }}/release/app-${{ matrix.flavor }}-release-unsigned.apk
+          path: app/build/outputs/apk/${{ matrix.flavor }}/release/app-${{ matrix.flavor }}-release.apk
           retention-days: 30
