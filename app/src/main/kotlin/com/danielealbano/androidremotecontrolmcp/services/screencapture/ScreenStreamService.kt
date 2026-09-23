@@ -205,11 +205,17 @@ class ScreenStreamService : Service() {
         try {
             while (!stopping.get()) {
                 when (val index = codec.dequeueOutputBuffer(info, OUTPUT_TIMEOUT_US)) {
-                    MediaCodec.INFO_TRY_AGAIN_LATER -> Unit
+                    MediaCodec.INFO_TRY_AGAIN_LATER -> {
+                        Unit
+                    }
+
                     MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                         extractCodecConfig(codec.outputFormat)?.let(streamHub::publishCodecConfig)
                     }
-                    else -> handleOutputBuffer(codec, index, info)
+
+                    else -> {
+                        handleOutputBuffer(codec, index, info)
+                    }
                 }
             }
         } catch (e: IllegalStateException) {
@@ -249,9 +255,11 @@ class ScreenStreamService : Service() {
             info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0 -> {
                 ScreenStreamHub.FLAG_CODEC_CONFIG
             }
+
             info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0 -> {
                 ScreenStreamHub.FLAG_KEY_FRAME
             }
+
             else -> 0
         }
 
