@@ -143,22 +143,29 @@ class ScreenStreamService : Service() {
         val height = evenDimension((rawHeight * scale).roundToInt())
         val densityDpi = metrics.densityDpi
 
+        // Pick the fastest frame rate the selected hardware AVC encoder advertises for the
+        // actual capture size, capped by the display refresh rate and our 120 FPS ceiling.
+        // This keeps the same capture/stream architecture while allowing high-refresh devices
+        // to use the low-latency path at >60 FPS without assuming every encoder supports it.
+        val codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+        encoder = codec
+        val targetFps = selectTargetFps(codec, width, height, metrics.refreshRate)
+        val bitRate = bitrateFor(targetFps)
+
         val format =
             MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height).apply {
                 setInteger(
                     MediaFormat.KEY_COLOR_FORMAT,
                     MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface,
                 )
-                setInteger(MediaFormat.KEY_BIT_RATE, BIT_RATE)
-                setInteger(MediaFormat.KEY_FRAME_RATE, TARGET_FPS)
+                setInteger(MediaFormat.KEY_BIT_RATE, bitRate)
+                setInteger(MediaFormat.KEY_FRAME_RATE, targetFps)
                 setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                     setInteger(MediaFormat.KEY_MAX_B_FRAMES, 0)
                 }
             }
 
-        val codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
-        encoder = codec
         codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
         val surface = codec.createInputSurface()
         encoderSurface = surface
@@ -176,7 +183,7 @@ class ScreenStreamService : Service() {
                 mainHandler,
             )
 
-        streamHub.setRunning(width, height, TARGET_FPS)
+        streamHub.setRunning(width, height, targetFps)
         streamHub.onClientConnected = { requestSyncFrame() }
         _running.value = true
         outputThread = thread(name = "ScreenStreamEncoder", start = true) { drainEncoder(codec) }
@@ -302,6 +309,37 @@ class ScreenStreamService : Service() {
         return output
     }
 
+    private fun selectTargetFps(
+        codec: MediaCodec,
+        width: Int,
+        height: Int,
+        refreshRate: Float,
+    ): Int {
+        val displayFps =
+            refreshRate
+                .takeIf { it.isFinite() && it > 0f }
+                ?.toInt()
+                ?: 60
+
+        val advertisedMax =
+            runCatching {
+                codec.codecInfo
+                    .getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC)
+                    .videoCapabilities
+                    .getSupportedFrameRatesFor(width, height)
+                    .upper
+                    .toInt()
+            }.getOrDefault(60)
+
+        return minOf(MAX_FPS, displayFps, advertisedMax).coerceIn(30, MAX_FPS)
+    }
+
+    private fun bitrateFor(fps: Int): Int {
+        return (BASE_BIT_RATE.toLong() * fps / 60L)
+            .coerceAtMost(MAX_BIT_RATE.toLong())
+            .toInt()
+    }
+
     private fun evenDimension(value: Int): Int {
         val safeValue = value.coerceAtLeast(2)
         return if (safeValue % 2 == 0) safeValue else safeValue - 1
@@ -318,8 +356,9 @@ class ScreenStreamService : Service() {
     companion object {
         private const val TAG = "MCP:ScreenStream"
         private const val MAX_DIMENSION = 1920
-        private const val BIT_RATE = 12_000_000
-        private const val TARGET_FPS = 60
+        private const val BASE_BIT_RATE = 12_000_000
+        private const val MAX_FPS = 120
+        private const val MAX_BIT_RATE = 20_000_000
         private const val OUTPUT_TIMEOUT_US = 10_000L
         private const val NOTIFICATION_ID = 1002
 
