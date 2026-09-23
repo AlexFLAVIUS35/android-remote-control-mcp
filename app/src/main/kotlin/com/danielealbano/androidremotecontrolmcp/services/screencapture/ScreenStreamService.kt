@@ -150,7 +150,11 @@ class ScreenStreamService : Service() {
         val codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
         encoder = codec
         val refreshRate =
-            getSystemService(DisplayManager::class.java)\n                ?.getDisplay(android.view.Display.DEFAULT_DISPLAY)\n                ?.refreshRate\n                ?: 60f\n        val targetFps = selectTargetFps(codec, width, height, refreshRate)
+            getSystemService(DisplayManager::class.java)
+                ?.getDisplay(android.view.Display.DEFAULT_DISPLAY)
+                ?.refreshRate
+                ?: 60f
+        val targetFps = selectTargetFps(codec, width, height, refreshRate)
         val bitRate = bitrateFor(targetFps)
 
         val format =
@@ -327,7 +331,7 @@ class ScreenStreamService : Service() {
                 codec.codecInfo
                     .getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC)
                     .videoCapabilities
-                    .getSupportedFrameRatesFor(width, height)
+                    ?.getSupportedFrameRatesFor(width, height)
                     .upper
                     .toInt()
             }.getOrDefault(60)
