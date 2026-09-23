@@ -13,7 +13,6 @@ import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
 
-
 data class ScreenStreamStatus(
     val running: Boolean = false,
     val width: Int = 0,
@@ -76,7 +75,13 @@ class ScreenStreamHub
             height: Int,
             fps: Int,
         ) {
-            _status.value = ScreenStreamStatus(running = true, width = width, height = height, fps = fps)
+            _status.value =
+                ScreenStreamStatus(
+                    running = true,
+                    width = width,
+                    height = height,
+                    fps = fps,
+                )
         }
 
         fun setStopped() {
