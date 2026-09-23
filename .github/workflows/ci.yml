@@ -368,7 +368,7 @@ jobs:
           # Full history + tags: build.gradle.kts derives versionName/versionCode from
           # git and fails configuration without them (no hardcoded fallback). On
           # pull_request runs this reflects the ephemeral merge ref, not the post-merge
-          # main commit; these artifacts are unsigned and never shipped.
+          # main commit. Release APKs are signed in CI using the repository release keystore.
           fetch-depth: 0
 
       - name: Set up JDK 17
@@ -438,8 +438,36 @@ jobs:
           path: .dbip-cache
           key: dbip-csv-${{ steps.dbip-month.outputs.month }}
 
-      - name: Build ${{ matrix.label }} debug + release APKs
+      - name: Decode release keystore
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "::error::RELEASE_KEYSTORE_BASE64 secret is not set; release APK would be unsigned"
+            exit 1
+          fi
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/release.jks"
+          {
+            echo "storeFile=$GITHUB_WORKSPACE/release.jks"
+            echo "storePassword=$RELEASE_KEYSTORE_PASSWORD"
+            echo "keyAlias=$RELEASE_KEY_ALIAS"
+            echo "keyPassword=$RELEASE_KEY_PASSWORD"
+          } > "$GITHUB_WORKSPACE/keystore.properties"
+
+      - name: Build ${{ matrix.label }} debug + signed release APKs
         run: ./gradlew assemble${{ matrix.cap }}Debug assemble${{ matrix.cap }}Release
+
+      - name: Verify ${{ matrix.label }} release APK signature
+        run: |
+          APK="app/build/outputs/apk/${{ matrix.flavor }}/release/app-${{ matrix.flavor }}-release.apk"
+          if [ ! -f "$APK" ]; then
+            echo "::error::Signed release APK not found at $APK"
+            exit 1
+          fi
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/apksigner" verify --verbose "$APK"
 
       - name: Upload ${{ matrix.label }} debug APK
         uses: actions/upload-artifact@v7
@@ -452,5 +480,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: app-${{ matrix.flavor }}-release
-          path: app/build/outputs/apk/${{ matrix.flavor }}/release/app-${{ matrix.flavor }}-release-unsigned.apk
+          path: app/build/outputs/apk/${{ matrix.flavor }}/release/app-${{ matrix.flavor }}-release.apk
           retention-days: 30
