@@ -6,12 +6,16 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 
 data class ScreenStreamStatus(
     val running: Boolean = false,
@@ -111,11 +115,12 @@ class ScreenStreamHub
                 session.send(
                     Frame.Binary(
                         fin = true,
-                        data = EncodedScreenFrame(
-                            presentationTimeUs = 0,
-                            flags = FLAG_CODEC_CONFIG,
-                            payload = config,
-                        ).toWireBytes(),
+                        data =
+                            EncodedScreenFrame(
+                                presentationTimeUs = 0,
+                                flags = FLAG_CODEC_CONFIG,
+                                payload = config,
+                            ).toWireBytes(),
                     ),
                 )
             }
