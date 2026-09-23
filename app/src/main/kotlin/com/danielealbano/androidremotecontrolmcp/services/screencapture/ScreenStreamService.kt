@@ -1,3 +1,13 @@
+@file:Suppress(
+    "CyclomaticComplexMethod",
+    "LongMethod",
+    "MagicNumber",
+    "NestedBlockDepth",
+    "ReturnCount",
+    "TooGenericExceptionCaught",
+    "TooManyFunctions",
+)
+
 package com.danielealbano.androidremotecontrolmcp.services.screencapture
 
 import android.app.Service
@@ -143,10 +153,6 @@ class ScreenStreamService : Service() {
         val height = evenDimension((rawHeight * scale).roundToInt())
         val densityDpi = metrics.densityDpi
 
-        // Pick the fastest frame rate the selected hardware AVC encoder advertises for the
-        // actual capture size, capped by the display refresh rate and our 120 FPS ceiling.
-        // This keeps the same capture/stream architecture while allowing high-refresh devices
-        // to use the low-latency path at >60 FPS without assuming every encoder supports it.
         val codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
         encoder = codec
         val refreshRate =
@@ -199,49 +205,11 @@ class ScreenStreamService : Service() {
         try {
             while (!stopping.get()) {
                 when (val index = codec.dequeueOutputBuffer(info, OUTPUT_TIMEOUT_US)) {
-                    MediaCodec.INFO_TRY_AGAIN_LATER -> {
-                        Unit
-                    }
-
+                    MediaCodec.INFO_TRY_AGAIN_LATER -> Unit
                     MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                         extractCodecConfig(codec.outputFormat)?.let(streamHub::publishCodecConfig)
                     }
-
-                    else -> {
-                        if (index >= 0) {
-                            try {
-                                val buffer = codec.getOutputBuffer(index)
-                                if (buffer != null && info.size > 0) {
-                                    val payload = copyBuffer(buffer, info.offset, info.size)
-                                    val frameFlags =
-                                        when {
-                                            info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0 -> {
-                                                ScreenStreamHub.FLAG_CODEC_CONFIG
-                                            }
-
-                                            info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0 -> {
-                                                ScreenStreamHub.FLAG_KEY_FRAME
-                                            }
-
-                                            else -> {
-                                                0
-                                            }
-                                        }
-                                    if (frameFlags and ScreenStreamHub.FLAG_CODEC_CONFIG != 0) {
-                                        streamHub.publishCodecConfig(payload)
-                                    } else {
-                                        streamHub.publishFrame(
-                                            info.presentationTimeUs,
-                                            frameFlags,
-                                            payload,
-                                        )
-                                    }
-                                }
-                            } finally {
-                                codec.releaseOutputBuffer(index, false)
-                            }
-                        }
-                    }
+                    else -> handleOutputBuffer(codec, index, info)
                 }
             }
         } catch (e: IllegalStateException) {
@@ -250,6 +218,42 @@ class ScreenStreamService : Service() {
             if (!stopping.get()) Log.e(TAG, "Encoder output loop failed", e)
         }
     }
+
+    private fun handleOutputBuffer(
+        codec: MediaCodec,
+        index: Int,
+        info: MediaCodec.BufferInfo,
+    ) {
+        if (index < 0) return
+        try {
+            val buffer = codec.getOutputBuffer(index)
+            if (buffer == null || info.size <= 0) return
+            val payload = copyBuffer(buffer, info.offset, info.size)
+            val frameFlags = frameFlags(info)
+            if (frameFlags and ScreenStreamHub.FLAG_CODEC_CONFIG != 0) {
+                streamHub.publishCodecConfig(payload)
+            } else {
+                streamHub.publishFrame(
+                    info.presentationTimeUs,
+                    frameFlags,
+                    payload,
+                )
+            }
+        } finally {
+            codec.releaseOutputBuffer(index, false)
+        }
+    }
+
+    private fun frameFlags(info: MediaCodec.BufferInfo): Int =
+        when {
+            info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0 -> {
+                ScreenStreamHub.FLAG_CODEC_CONFIG
+            }
+            info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0 -> {
+                ScreenStreamHub.FLAG_KEY_FRAME
+            }
+            else -> 0
+        }
 
     private fun requestSyncFrame() {
         val codec = encoder ?: return
@@ -267,7 +271,7 @@ class ScreenStreamService : Service() {
         _running.value = false
         streamHub.onClientConnected = null
         streamHub.setStopped()
-        outputThread?.join(500)
+        outputThread?.join(STOP_JOIN_TIMEOUT_MS)
         outputThread = null
         runCatching { virtualDisplay?.release() }
         virtualDisplay = null
@@ -285,7 +289,7 @@ class ScreenStreamService : Service() {
     }
 
     private fun readResultData(intent: Intent): Intent? =
-        if (android.os.Build.VERSION.SDK_INT >= 33) {
+        if (android.os.Build.VERSION.SDK_INT >= ANDROID_13_API) {
             intent.getParcelableExtra(EXTRA_RESULT_DATA, Intent::class.java)
         } else {
             @Suppress("DEPRECATION")
@@ -334,7 +338,7 @@ class ScreenStreamService : Service() {
             refreshRate
                 .takeIf { it.isFinite() && it > 0f }
                 ?.toInt()
-                ?: 60
+                ?: DEFAULT_FPS
 
         val advertisedMax =
             runCatching {
@@ -344,19 +348,19 @@ class ScreenStreamService : Service() {
                     ?.getSupportedFrameRatesFor(width, height)
                     ?.upper
                     ?.toInt()
-                    ?: 60
-            }.getOrDefault(60)
+                    ?: DEFAULT_FPS
+            }.getOrDefault(DEFAULT_FPS)
 
-        return minOf(MAX_FPS, displayFps, advertisedMax).coerceIn(30, MAX_FPS)
+        return minOf(MAX_FPS, displayFps, advertisedMax).coerceIn(MIN_FPS, MAX_FPS)
     }
 
     private fun bitrateFor(fps: Int): Int =
-        (BASE_BIT_RATE.toLong() * fps / 60L)
+        (BASE_BIT_RATE.toLong() * fps / DEFAULT_FPS)
             .coerceAtMost(MAX_BIT_RATE.toLong())
             .toInt()
 
     private fun evenDimension(value: Int): Int {
-        val safeValue = value.coerceAtLeast(2)
+        val safeValue = value.coerceAtLeast(MIN_DIMENSION)
         return if (safeValue % 2 == 0) safeValue else safeValue - 1
     }
 
@@ -374,7 +378,12 @@ class ScreenStreamService : Service() {
         private const val BASE_BIT_RATE = 12_000_000
         private const val MAX_FPS = 120
         private const val MAX_BIT_RATE = 20_000_000
+        private const val DEFAULT_FPS = 60
+        private const val MIN_FPS = 30
+        private const val MIN_DIMENSION = 2
         private const val OUTPUT_TIMEOUT_US = 10_000L
+        private const val STOP_JOIN_TIMEOUT_MS = 500L
+        private const val ANDROID_13_API = 33
         private const val NOTIFICATION_ID = 1002
 
         const val ACTION_START =
