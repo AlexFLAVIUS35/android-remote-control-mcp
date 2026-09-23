@@ -22,11 +22,11 @@ import com.danielealbano.androidremotecontrolmcp.McpApplication
 import com.danielealbano.androidremotecontrolmcp.R
 import com.danielealbano.androidremotecontrolmcp.ui.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlin.concurrent.thread
 import kotlin.math.roundToInt
 
@@ -223,7 +223,9 @@ class ScreenStreamService : Service() {
                                                 ScreenStreamHub.FLAG_KEY_FRAME
                                             }
 
-                                            else -> 0
+                                            else -> {
+                                                0
+                                            }
                                         }
                                     if (frameFlags and ScreenStreamHub.FLAG_CODEC_CONFIG != 0) {
                                         streamHub.publishCodecConfig(payload)
