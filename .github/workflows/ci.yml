@@ -61,6 +61,7 @@ jobs:
           JAVA_11_HOME: ${{ env.JAVA_HOME }}
           JAVA_17_HOME: ${{ env.JAVA_HOME }}
 
+      # Keep formatting validation on every stream change; source is ktlint-formatted.
       - name: Run ktlint
         run: ./gradlew ktlintCheck
 
