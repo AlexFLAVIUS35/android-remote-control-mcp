@@ -260,7 +260,9 @@ class ScreenStreamService : Service() {
                 ScreenStreamHub.FLAG_KEY_FRAME
             }
 
-            else -> 0
+            else -> {
+                0
+            }
         }
 
     private fun requestSyncFrame() {
